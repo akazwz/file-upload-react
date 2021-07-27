@@ -10,6 +10,8 @@ import {
 import CloudUploadIcon from '@material-ui/icons/CloudUpload';
 import PauseCircleOutlineIcon from '@material-ui/icons/PauseCircleOutline';
 import PlayCircleFilledWhiteIcon from '@material-ui/icons/PlayCircleFilledWhite';
+import MD5 from 'crypto-js/md5';
+import EncLatin1 from 'crypto-js/enc-latin1';
 
 const useStyles = makeStyles(() => ({
     cont: {
@@ -18,7 +20,7 @@ const useStyles = makeStyles(() => ({
     fileBox: {
         width: '100%',
         height: '100px',
-        backgroundColor: 'grey',
+        backgroundColor: 'lightgray',
     },
 }));
 
@@ -33,8 +35,44 @@ const FileUpload = () => {
     const handleFileInputChange = () => {
         let file = fileInput.current['files'][0];
         let filename = file.name;
+        let filesize = file.size;
+
+        const formData = new FormData;
+
+        if (filesize < 10000) {
+            return;
+        }
+        // 获取文件MD5
+        const reader = new FileReader();
+        reader.readAsBinaryString(file);
+        reader.onload = () => {
+            const text = reader.result;
+            const fileMD5 = MD5(EncLatin1.parse(text)).toString();
+            formData.append('file-md5', fileMD5);
+        }
+        // 分块上传
+        const chunkSize = 1024 * 1024;
+        const totalChunks = Math.ceil(filesize / chunkSize);
+        let start;
+        let end;
+        for (let i = 0; i < totalChunks; i++) {
+            start = i * chunkSize;
+            end = start + chunkSize;
+            let chunkFile = file.slice(start, end);
+            const chunkReader = new FileReader();
+            chunkReader.readAsBinaryString(chunkFile);
+            chunkReader.onload = () => {
+                const chunkText = chunkReader.result;
+                const chunkMD5 = MD5(EncLatin1.parse(chunkText)).toString();
+                formData.set('chunk-file', chunkFile);
+                formData.set('chunk-md5', chunkMD5);
+                console.log(formData.get('chunk-md5'));
+            }
+        }
         setFilename(filename);
         setDisabled(false)
+
+
     }
     const handleBtnClick = () => {
         setShowProgress(true);
