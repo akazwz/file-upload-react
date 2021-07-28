@@ -34,6 +34,7 @@ const FileUpload = () => {
     const [icon, setIcon] = useState(<PlayCircleFilledWhiteIcon/>);
     const [disabled, setDisabled] = useState(true);
     const [btnText, setBtnText] = useState('开始上传');
+    const [progress, setProgress] = useState(0);
     const [showProgress, setShowProgress] = useState(false);
     const [filename, setFilename] = useState('请选择文件');
     const fileInput = useRef();
@@ -75,7 +76,7 @@ const FileUpload = () => {
                     formData.set('chunk-md5', chunkMD5);
                     formData.set('chunk-index', index);
                     UploadChunk(formData).then((res) => {
-                        console.log(res);
+                        setProgress(res.data.progress);
                     }).catch((err) => {
                         console.log(err);
                     });
@@ -112,7 +113,7 @@ const FileUpload = () => {
                     </Box>
                 </label>
                 <Box>
-                    {showProgress ? (<CircularProgress/>) : null}
+                    {showProgress ? (<CircularProgress value={progress}/>) : null}
                 </Box>
                 <Button
                     onClick={handleBtnClick}
