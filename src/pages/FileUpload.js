@@ -12,6 +12,7 @@ import PauseCircleOutlineIcon from '@material-ui/icons/PauseCircleOutline';
 import PlayCircleFilledWhiteIcon from '@material-ui/icons/PlayCircleFilledWhite';
 import MD5 from 'crypto-js/md5';
 import EncLatin1 from 'crypto-js/enc-latin1';
+import {UploadChunk, MergeChunks} from "../apis/file";
 
 const useStyles = makeStyles(() => ({
     cont: {
@@ -24,6 +25,10 @@ const useStyles = makeStyles(() => ({
     },
 }));
 
+const PrefixInteger = (num, n) => (
+    (Array(n).join('0') + num).slice(-n)
+);
+
 const FileUpload = () => {
     const classes = useStyles();
     const [icon, setIcon] = useState(<PlayCircleFilledWhiteIcon/>);
@@ -32,12 +37,12 @@ const FileUpload = () => {
     const [showProgress, setShowProgress] = useState(false);
     const [filename, setFilename] = useState('请选择文件');
     const fileInput = useRef();
-    const handleFileInputChange = () => {
+    // 文件上传
+    const handleFileUpload = () => {
         let file = fileInput.current['files'][0];
-        let filename = file.name;
         let filesize = file.size;
 
-        const formData = new FormData;
+        const formData = new FormData();
 
         if (filesize < 10000) {
             return;
@@ -49,34 +54,45 @@ const FileUpload = () => {
             const text = reader.result;
             const fileMD5 = MD5(EncLatin1.parse(text)).toString();
             formData.append('file-md5', fileMD5);
-        }
-        // 分块上传
-        const chunkSize = 1024 * 1024;
-        const totalChunks = Math.ceil(filesize / chunkSize);
-        let start;
-        let end;
-        for (let i = 0; i < totalChunks; i++) {
-            start = i * chunkSize;
-            end = start + chunkSize;
-            let chunkFile = file.slice(start, end);
-            const chunkReader = new FileReader();
-            chunkReader.readAsBinaryString(chunkFile);
-            chunkReader.onload = () => {
-                const chunkText = chunkReader.result;
-                const chunkMD5 = MD5(EncLatin1.parse(chunkText)).toString();
-                formData.set('chunk-file', chunkFile);
-                formData.set('chunk-md5', chunkMD5);
-                console.log(formData.get('chunk-md5'));
+
+            // 分块上传
+            const chunkSize = 1024 * 1024;
+            const totalChunks = Math.ceil(filesize / chunkSize);
+            formData.append('chunks-count', totalChunks.toString());
+            let start;
+            let end;
+            for (let i = 0; i < totalChunks; i++) {
+                start = i * chunkSize;
+                end = start + chunkSize;
+                let chunkFile = file.slice(start, end);
+                let index = PrefixInteger(i, 5);
+                const chunkReader = new FileReader();
+                chunkReader.readAsBinaryString(chunkFile);
+                chunkReader.onload = () => {
+                    const chunkText = chunkReader.result;
+                    const chunkMD5 = MD5(EncLatin1.parse(chunkText)).toString();
+                    formData.set('chunk-file', chunkFile);
+                    formData.set('chunk-md5', chunkMD5);
+                    formData.set('chunk-index', index);
+                    UploadChunk(formData).then((res) => {
+                        console.log(res);
+                    }).catch((err) => {
+                        console.log(err);
+                    });
+                };
             }
         }
+    };
+    const handleFileInputChange = () => {
+        let file = fileInput.current['files'][0];
+        let filename = file.name;
         setFilename(filename);
-        setDisabled(false)
-
-
+        setDisabled(false);
     }
     const handleBtnClick = () => {
         setShowProgress(true);
         if (btnText === '开始上传') {
+            handleFileUpload();
             setBtnText('暂停上传');
             setIcon(<PauseCircleOutlineIcon/>);
         } else {
