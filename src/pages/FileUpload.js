@@ -5,14 +5,14 @@ import {
     CssBaseline,
     Box,
     Button,
-    CircularProgress,
 } from '@material-ui/core';
 import CloudUploadIcon from '@material-ui/icons/CloudUpload';
 import PauseCircleOutlineIcon from '@material-ui/icons/PauseCircleOutline';
 import PlayCircleFilledWhiteIcon from '@material-ui/icons/PlayCircleFilledWhite';
 import MD5 from 'crypto-js/md5';
 import EncLatin1 from 'crypto-js/enc-latin1';
-import {UploadChunk, MergeChunks} from "../apis/file";
+import {UploadChunk} from "../apis/file"
+import LinearProgressWithLabel from '../components/LinearProgressWithLabel';
 
 const useStyles = makeStyles(() => ({
     cont: {
@@ -34,7 +34,8 @@ const FileUpload = () => {
     const [icon, setIcon] = useState(<PlayCircleFilledWhiteIcon/>);
     const [disabled, setDisabled] = useState(true);
     const [btnText, setBtnText] = useState('开始上传');
-    const [progress, setProgress] = useState(0);
+    const [readFileProgress, setReadFileProgress] = useState(0);
+    const [uploadFileProgress, setUploadFileProgress] = useState(0);
     const [showProgress, setShowProgress] = useState(false);
     const [filename, setFilename] = useState('请选择文件');
     const fileInput = useRef();
@@ -51,11 +52,15 @@ const FileUpload = () => {
         // 获取文件MD5
         const reader = new FileReader();
         reader.readAsBinaryString(file);
+        // 文件读取进度
+        reader.onprogress = (e) => {
+            let loadingFileProgress = Math.ceil(100 * (e.loaded / filesize));
+            setReadFileProgress(loadingFileProgress);
+        };
         reader.onload = () => {
             const text = reader.result;
             const fileMD5 = MD5(EncLatin1.parse(text)).toString();
             formData.append('file-md5', fileMD5);
-
             // 分块上传
             const chunkSize = 1024 * 1024;
             const totalChunks = Math.ceil(filesize / chunkSize);
@@ -76,7 +81,8 @@ const FileUpload = () => {
                     formData.set('chunk-md5', chunkMD5);
                     formData.set('chunk-index', index);
                     UploadChunk(formData).then((res) => {
-                        setProgress(res.data.progress);
+                        const {progress} = res.data
+                        setUploadFileProgress(Math.ceil(progress));
                     }).catch((err) => {
                         console.log(err);
                     });
@@ -89,7 +95,7 @@ const FileUpload = () => {
         let filename = file.name;
         setFilename(filename);
         setDisabled(false);
-    }
+    };
     const handleBtnClick = () => {
         setShowProgress(true);
         if (btnText === '开始上传') {
@@ -100,7 +106,7 @@ const FileUpload = () => {
             setBtnText('开始上传');
             setIcon(<PlayCircleFilledWhiteIcon/>);
         }
-    }
+    };
     return (
         <Fragment>
             <Container className={classes.cont}>
@@ -113,7 +119,12 @@ const FileUpload = () => {
                     </Box>
                 </label>
                 <Box>
-                    {showProgress ? (<CircularProgress value={progress}/>) : null}
+                    {showProgress ? (
+                        <div>
+                            文件解析进度:<LinearProgressWithLabel value={readFileProgress}/>
+                            文件上传进度:<LinearProgressWithLabel value={uploadFileProgress}/>
+                        </div>
+                    ) : null}
                 </Box>
                 <Button
                     onClick={handleBtnClick}
@@ -127,7 +138,6 @@ const FileUpload = () => {
                 </Button>
             </Container>
         </Fragment>
-
     );
 };
 
