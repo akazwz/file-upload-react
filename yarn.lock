@@ -5837,6 +5837,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"echarts@npm:^5.1.2":
+  version: 5.1.2
+  resolution: "echarts@npm:5.1.2"
+  dependencies:
+    tslib: 2.0.3
+    zrender: 5.1.1
+  checksum: 50f2e902973cd9a854e1367618b38909bc8f94bca0640037e18a971d2361c4d61d6aa8379ab26ceb90de774c8f1ab02817769df86af2a1e2b625831f512d5143
+  languageName: node
+  linkType: hard
+
 "ee-first@npm:1.1.1":
   version: 1.1.1
   resolution: "ee-first@npm:1.1.1"
@@ -6803,6 +6813,7 @@ __metadata:
     "@testing-library/user-event": ^12.1.10
     axios: ^0.21.1
     crypto-js: ^4.1.1
+    echarts: ^5.1.2
     eslint-config-react-app: ^6.0.0
     react: ^17.0.2
     react-dom: ^17.0.2
@@ -14573,6 +14584,13 @@ resolve@1.18.1:
   languageName: node
   linkType: hard
 
+"tslib@npm:2.0.3":
+  version: 2.0.3
+  resolution: "tslib@npm:2.0.3"
+  checksum: 00fcdd1f9995c9f8eb6a4a1ad03f55bc95946321b7f55434182dddac259d4e095fedf78a84f73b6e32dd3f881d9281f09cb583123d3159ed4bdac9ad7393ef8b
+  languageName: node
+  linkType: hard
+
 "tslib@npm:^1.8.1, tslib@npm:^1.9.0":
   version: 1.14.1
   resolution: "tslib@npm:1.14.1"
@@ -15737,5 +15755,14 @@ resolve@1.18.1:
   version: 0.1.0
   resolution: "yocto-queue@npm:0.1.0"
   checksum: f77b3d8d00310def622123df93d4ee654fc6a0096182af8bd60679ddcdfb3474c56c6c7190817c84a2785648cdee9d721c0154eb45698c62176c322fb46fc700
+  languageName: node
+  linkType: hard
+
+"zrender@npm:5.1.1":
+  version: 5.1.1
+  resolution: "zrender@npm:5.1.1"
+  dependencies:
+    tslib: 2.0.3
+  checksum: eab9593485b04333d7195500bf71025f6c5c3021bd10f8623dc0fc6dc7f5578c19022123ae0bebf3e521c0c1ea4e228e9aa60f63b67cfd6ad602f16833ef63b2
   languageName: node
   linkType: hard
