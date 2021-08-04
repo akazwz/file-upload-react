@@ -20,7 +20,7 @@
 }
 
 .container {
-    height: 200px;
+    height: 60px;
     width: 200px;
     overflow: scroll;
     background-color: darkgrey;
