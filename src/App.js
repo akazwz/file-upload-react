@@ -2,6 +2,7 @@ import './App.css';
 import FileUpload from './pages/FileUpload';
 import ComBox from './components/ComBox';
 import PieChart from "./components/PieChart";
+import ScrollBar from "./components/ScrollBar";
 
 
 const App = () => {
@@ -18,7 +19,7 @@ const App = () => {
             <div style={{marginLeft: 50}}>
                 <ComBox data={arr}/>
             </div>
-            <PieChart/>
+            <ScrollBar/>
         </div>
     );
 };

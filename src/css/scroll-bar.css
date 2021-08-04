@@ -1,0 +1,27 @@
+::-webkit-scrollbar {
+    width: 5px;
+    height: 0;
+    background-color: #282c34;
+}
+
+::-webkit-scrollbar-button {
+    width: 10px;
+    height: 10px;
+    background-color: darkgoldenrod;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #61dafb;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-corner {
+    border-radius: 5px;
+}
+
+.container {
+    height: 200px;
+    width: 200px;
+    overflow: scroll;
+    background-color: darkgrey;
+}

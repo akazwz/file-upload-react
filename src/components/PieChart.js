@@ -211,7 +211,7 @@ const PieChart = () => {
         let end = 6;
         for (let i = start; i < end; i++) {
             let name = pieData[i].name
-            let div = <div key={i} style={{display: 'inline', marginLeft: 100, color: color[i]}}>{name}</div>
+            let div = <div key={i} style={{display: 'inline', marginLeft: 100, color: color[i]}}> {name}</div>
             arr.push(div);
             if ((i + 1) % 2 === 0) {
                 arr.push(<br/>)
