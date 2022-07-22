@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import {
 	Heading,
 	AspectRatio,
@@ -6,20 +7,23 @@ import {
 	Text,
 	HStack,
 	VStack,
-	Tooltip, useColorModeValue
+	Tooltip,
+	Spacer,
+	useColorModeValue,
 } from '@chakra-ui/react'
-import { useRef, useState } from 'react'
-import { ImageFiles, UploadOne } from '@icon-park/react'
+import { Correct, FileAdditionOne, UploadOne } from '@icon-park/react'
+import axios from 'axios'
 
 import { ellipsisTextStartAndEnd, FilesizeUnit } from '../utils'
+import { HashFile } from '../utils/file'
 import { ColorModeToggle } from '../components/ColorModeToggle'
 
 const Home = () => {
 	const inputRef = useRef<HTMLInputElement>(null)
 
 	const [filename, setFilename] = useState<string>('')
-	const [filetype, setFiletype] = useState<string>('')
 	const [filesize, setFilesize] = useState<number | null>(null)
+	const [progress, setProgress] = useState(0)
 
 	const [borderColor, setBorderColor] = useState<string>('')
 
@@ -27,14 +31,56 @@ const Home = () => {
 		inputRef.current?.click()
 	}
 
-	const handleFileChange = () => {
+	// handle after select file
+	const handleFileChange = async() => {
 		const file = inputRef.current?.files?.item(0)
 		if (!file) {
 			return
 		}
 		setFilename(file.name)
-		setFiletype(file.type)
 		setFilesize(file.size)
+		// get hashcode
+		const hashcode = await HashFile(file, 'sha256')
+		console.log(hashcode)
+
+		/*const form = new FormData()
+		form.append('file', file)
+
+		// simple upload
+		await axios.post('http://localhost:8080/file', form, {
+			// upload progress
+			onUploadProgress: (progressEvent: ProgressEvent) => {
+				const p = (progressEvent.loaded / file.size) * 100
+				setProgress(p)
+			}
+		})*/
+
+		const chunkSize = 1024 * 1024
+		const chunksSum = Math.ceil(file.size / chunkSize)
+		console.log(chunksSum)
+
+		// 切片文件
+		for (let index = 0, chunkIndex = 0; index < file.size; index += chunkSize, chunkIndex++) {
+			const chunkFile = file.slice(index, index + chunkSize)
+			const chunkHash = await HashFile(chunkFile, 'sha256')
+			const form = new FormData()
+			form.append('chunk_file', chunkFile)
+			form.append('chunk_index', String(chunkIndex))
+			form.append('chunk_hash', String(chunkHash))
+			form.append('chunk_sum', String(chunksSum))
+			form.append('file_hash', hashcode)
+			try {
+				await axios.post('http://localhost:8080/file/chunk', form, {})
+				if (chunkIndex === chunksSum) {
+					console.log('finish')
+				}
+			} catch (e) {
+				console.log(e)
+			} finally {
+
+			}
+		}
+
 	}
 
 	return (
@@ -78,7 +124,7 @@ const Home = () => {
 				/>
 			</Box>
 			{
-				filesize ? <UploadItem filename={filename} filesize={filesize} progress={100} /> : null
+				filesize ? <UploadItem filename={filename} filesize={filesize} progress={progress} /> : null
 			}
 		</Box>
 	)
@@ -107,9 +153,9 @@ export const UploadItem = ({ filename, filesize, progress }: UploadItemProps) =>
 			>
 			</Box>
 			{/* relative content */}
-			<HStack w="full" position="relative" height="70px" p={1} mt="-70px">
+			<HStack w="full" position="relative" height="70px" p={3} mt="-70px">
 				<Box>
-					<ImageFiles size={45} strokeWidth={2} />
+					<FileAdditionOne size={45} strokeWidth={2} />
 				</Box>
 				<VStack spacing={0} alignItems="start" overflow="hidden">
 					<Box>
@@ -124,28 +170,15 @@ export const UploadItem = ({ filename, filesize, progress }: UploadItemProps) =>
 					</Box>
 					<Text fontWeight="semibold" color="gray.500">{FilesizeUnit(filesize)}</Text>
 				</VStack>
+				<Spacer />
+				{
+					progress >= 100 ? (
+						<Box>
+							<Correct theme="filled" fill={'green'} size={27} />
+						</Box>
+					) : null
+				}
 			</HStack>
-		</Box>
-	)
-}
-
-export const PlayerProgress = ({ value }: { value: number }) => {
-	return (
-		<Box
-			flex={1}
-			width="full"
-			height={1}
-			bg="gray.500"
-			position="relative"
-			rounded="full"
-			overflow="hidden"
-		>
-			<Box
-				width={`${value}%`}
-				height={1}
-				bg="blue.500"
-				rounded="full"
-			/>
 		</Box>
 	)
 }
