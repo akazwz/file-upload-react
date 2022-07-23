@@ -27,21 +27,22 @@ const Home = () => {
 
 	const [borderColor, setBorderColor] = useState<string>('')
 
+	// 弹出选择文件
 	const handleSelectFile = () => {
 		inputRef.current?.click()
 	}
 
-	// handle after select file
+	// 选择文件之后
 	const handleFileChange = async() => {
+		// 获取文件
 		const file = inputRef.current?.files?.item(0)
 		if (!file) {
 			return
 		}
 		setFilename(file.name)
 		setFilesize(file.size)
-		// get hashcode
+		// 获取 hashcode sha256
 		const hashcode = await HashFile(file, 'sha256')
-		console.log(hashcode)
 
 		/*const form = new FormData()
 		form.append('file', file)
@@ -55,29 +56,80 @@ const Home = () => {
 			}
 		})*/
 
+		// 默认 分块大小
 		const chunkSize = 1024 * 1024
+		// 分块总个数
 		const chunksSum = Math.ceil(file.size / chunkSize)
-		console.log(chunksSum)
+
+		// 所有的分块 index
+		const indexesTotal: number[] = [...Array(chunksSum).keys()]
+
+		// 上传之前获取上传状态
+		const res = await axios.get('http://localhost:8080/file/chunk/state', {
+			params: {
+				hash: hashcode,
+			},
+		})
+		let indexesReady: number[] = []
+		// 返回已经存在的分块下标
+		const { code, indexes } = res.data
+		switch (code) {
+			// 正常，获取到已上传分块
+			case 2000:
+				console.log('正常， 获取到已经上传分块')
+				indexesReady = indexes
+				break
+			// 没有文件夹
+			case 2001:
+				console.log('没有文件夹')
+				break
+			// 上传成功
+			case 2002:
+				console.log('上传成功')
+				return
+			// 文件夹为空
+			case 2003:
+				console.log('文件夹为空')
+				break
+		}
+
+		console.log(code)
+
+		// 所有分块上传完毕，等待合并
+		if (indexesReady.length === chunksSum) {
+			// 发起合并请求
+			const form = new FormData()
+			form.append('chunk_sum', String(chunksSum))
+			form.append('file_hash', hashcode)
+			await axios.post('http://localhost:8080/file/chunk/merge', form, {})
+			console.log('所有分块上传完毕,已经合并，上传成功')
+		}
+
+		// 获取数组交集， 得到已经上传成功的数组 index
+		const uploadedIndex = indexesTotal.filter((item) => indexesReady.includes(item))
 
 		// 切片文件
 		for (let index = 0, chunkIndex = 0; index < file.size; index += chunkSize, chunkIndex++) {
+			// 在上传成功的分块 index 中， 无需上传分块
+			if (uploadedIndex.includes(chunkIndex)) {
+				continue
+			}
+
 			const chunkFile = file.slice(index, index + chunkSize)
 			const chunkHash = await HashFile(chunkFile, 'sha256')
+
 			const form = new FormData()
 			form.append('chunk_file', chunkFile)
 			form.append('chunk_index', String(chunkIndex))
 			form.append('chunk_hash', String(chunkHash))
 			form.append('chunk_sum', String(chunksSum))
 			form.append('file_hash', hashcode)
-			try {
-				await axios.post('http://localhost:8080/file/chunk', form, {})
-				if (chunkIndex === chunksSum) {
-					console.log('finish')
-				}
-			} catch (e) {
-				console.log(e)
-			} finally {
-
+			// 上传分块
+			await axios.post('http://localhost:8080/file/chunk', form, {})
+			// 所有分块上传完毕, 调用 合并文件接口
+			if (chunkIndex === chunksSum - 1) {
+				await axios.post('http://localhost:8080/file/chunk/merge', form, {})
+				console.log('已经合并，上传成功')
 			}
 		}
 
