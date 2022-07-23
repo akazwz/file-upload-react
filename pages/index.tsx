@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, DragEvent } from 'react'
 import {
 	Heading,
 	AspectRatio,
@@ -9,14 +9,15 @@ import {
 	VStack,
 	Tooltip,
 	Spacer,
+	Spinner,
 	useColorModeValue,
 } from '@chakra-ui/react'
 import { Correct, FileAdditionOne, UploadOne } from '@icon-park/react'
-import axios from 'axios'
 
 import { ellipsisTextStartAndEnd, FilesizeUnit } from '../utils'
 import { HashFile } from '../utils/file'
 import { ColorModeToggle } from '../components/ColorModeToggle'
+import { ChunkUpload, SimpleUpload } from '../utils/upload'
 
 const Home = () => {
 	const inputRef = useRef<HTMLInputElement>(null)
@@ -24,6 +25,8 @@ const Home = () => {
 	const [filename, setFilename] = useState<string>('')
 	const [filesize, setFilesize] = useState<number | null>(null)
 	const [progress, setProgress] = useState(0)
+
+	const [hashing, setHashing] = useState(false)
 
 	const [borderColor, setBorderColor] = useState<string>('')
 
@@ -39,100 +42,36 @@ const Home = () => {
 		if (!file) {
 			return
 		}
+		await upload(file)
+	}
+
+	// 拖拽上传文件
+	const handleBoxOnDrop = async(e: DragEvent<HTMLDivElement>) => {
+		e.preventDefault()
+		setBorderColor('')
+		const file = e.dataTransfer.files.item(0)
+		if (!file) return
+		await upload(file)
+	}
+
+	const upload = async(file: File) => {
+		// 上传之前重置 进度
+		setProgress(0)
 		setFilename(file.name)
 		setFilesize(file.size)
-		// 获取 hashcode sha256
-		const hashcode = await HashFile(file, 'sha256')
+		// 获取 文件 hash
+		setHashing(true)
+		const hash = await HashFile(file, 'sha256')
+		setHashing(false)
 
-		/*const form = new FormData()
-		form.append('file', file)
-
-		// simple upload
-		await axios.post('http://localhost:8080/file', form, {
-			// upload progress
-			onUploadProgress: (progressEvent: ProgressEvent) => {
-				const p = (progressEvent.loaded / file.size) * 100
-				setProgress(p)
-			}
-		})*/
-
-		// 默认 分块大小
-		const chunkSize = 1024 * 1024
-		// 分块总个数
-		const chunksSum = Math.ceil(file.size / chunkSize)
-
-		// 所有的分块 index
-		const indexesTotal: number[] = [...Array(chunksSum).keys()]
-
-		// 上传之前获取上传状态
-		const res = await axios.get('http://localhost:8080/file/chunk/state', {
-			params: {
-				hash: hashcode,
-			},
-		})
-		let indexesReady: number[] = []
-		// 返回已经存在的分块下标
-		const { code, indexes } = res.data
-		switch (code) {
-			// 正常，获取到已上传分块
-			case 2000:
-				console.log('正常， 获取到已经上传分块')
-				indexesReady = indexes
-				break
-			// 没有文件夹
-			case 2001:
-				console.log('没有文件夹')
-				break
-			// 上传成功
-			case 2002:
-				console.log('上传成功')
-				return
-			// 文件夹为空
-			case 2003:
-				console.log('文件夹为空')
-				break
+		// 根据文件大小判断是否需要分段上传
+		if (file.size > 30 * 1024 * 1024) {
+			// 切片上传
+			await ChunkUpload(file, hash, setProgress)
+		} else {
+			// 普通上传
+			await SimpleUpload(file, hash, setProgress)
 		}
-
-		console.log(code)
-
-		// 所有分块上传完毕，等待合并
-		if (indexesReady.length === chunksSum) {
-			// 发起合并请求
-			const form = new FormData()
-			form.append('chunk_sum', String(chunksSum))
-			form.append('file_hash', hashcode)
-			await axios.post('http://localhost:8080/file/chunk/merge', form, {})
-			console.log('所有分块上传完毕,已经合并，上传成功')
-		}
-
-		// 获取数组交集， 得到已经上传成功的数组 index
-		const uploadedIndex = indexesTotal.filter((item) => indexesReady.includes(item))
-
-		// 切片文件
-		for (let index = 0, chunkIndex = 0; index < file.size; index += chunkSize, chunkIndex++) {
-			// 在上传成功的分块 index 中， 无需上传分块
-			if (uploadedIndex.includes(chunkIndex)) {
-				continue
-			}
-
-			const chunkFile = file.slice(index, index + chunkSize)
-			const chunkHash = await HashFile(chunkFile, 'sha256')
-
-			const form = new FormData()
-			form.append('chunk_file', chunkFile)
-			form.append('chunk_index', String(chunkIndex))
-			form.append('chunk_hash', String(chunkHash))
-			form.append('chunk_sum', String(chunksSum))
-			form.append('file_hash', hashcode)
-			// 上传分块
-			await axios.post('http://localhost:8080/file/chunk', form, {})
-			// 所有分块上传完毕, 调用 合并文件接口
-			if (chunkIndex === chunksSum - 1) {
-				await axios.post('http://localhost:8080/file/chunk/merge', form, {})
-				console.log('已经合并，上传成功')
-			}
-		}
-
 	}
 
 	return (
@@ -141,25 +80,21 @@ const Home = () => {
 			<Heading textAlign="center">
 				Upload File
 			</Heading>
+			{/* 上传 box, 可以点击选择文件上传， 可以拖拽上传 */}
 			<Box
 				m={3}
 				onClick={handleSelectFile}
 				onDragOver={(e) => {
 					e.preventDefault()
 					setBorderColor('blue.500')
-					console.log('on drag over')
 				}}
 				onDragLeave={(e) => {
 					e.preventDefault()
 					setBorderColor('')
-					console.log('on drag leave')
 				}}
-				onDrop={(e) => {
-					e.preventDefault()
-					setBorderColor('')
-					console.log('on drop')
-				}}
+				onDrop={handleBoxOnDrop}
 			>
+				{/*  */}
 				<AspectRatio maxW="700px" ratio={21 / 9}>
 					<Box borderWidth={3} borderStyle="dashed" borderColor={borderColor} rounded="lg">
 						<VStack>
@@ -176,7 +111,7 @@ const Home = () => {
 				/>
 			</Box>
 			{
-				filesize ? <UploadItem filename={filename} filesize={filesize} progress={progress} /> : null
+				filesize ? <UploadItem filename={filename} filesize={filesize} hashing={hashing} progress={progress} /> : null
 			}
 		</Box>
 	)
@@ -186,16 +121,17 @@ interface UploadItemProps{
 	filename: string
 	filesize: number
 	progress: number
+	hashing: boolean
 }
 
-export const UploadItem = ({ filename, filesize, progress }: UploadItemProps) => {
+export const UploadItem = ({ filename, filesize, hashing, progress }: UploadItemProps) => {
 	const tooltipBg = useColorModeValue('white', 'black')
 	const tooltipColor = useColorModeValue('black', 'white')
 	const progressBg = useColorModeValue('blue.100', 'blue.900')
 
 	return (
 		<Box borderWidth={1} p={0} rounded="lg" height="70px" alignItems="flex-start" overflow="hidden">
-			{/* progress bg */}
+			{/* 进度条背景 */}
 			<Box
 				width={`${progress}%`}
 				height={'70px'}
@@ -204,19 +140,21 @@ export const UploadItem = ({ filename, filesize, progress }: UploadItemProps) =>
 				roundedRight={0}
 			>
 			</Box>
-			{/* relative content */}
+			{/* 相对定位内容： 上传文件信息， 文件名， 文件大小等 */}
 			<HStack w="full" position="relative" height="70px" p={3} mt="-70px">
 				<Box>
 					<FileAdditionOne size={45} strokeWidth={2} />
 				</Box>
 				<VStack spacing={0} alignItems="start" overflow="hidden">
 					<Box>
+						{/* 文件名全称 tooltip */}
 						<Tooltip
 							hasArrow
 							bg={tooltipBg}
 							color={tooltipColor}
 							label={filename}
 						>
+							{/* 文件名过长缩略 */}
 							<Text fontWeight="semibold">{ellipsisTextStartAndEnd(filename, 9, 7)}</Text>
 						</Tooltip>
 					</Box>
@@ -224,11 +162,16 @@ export const UploadItem = ({ filename, filesize, progress }: UploadItemProps) =>
 				</VStack>
 				<Spacer />
 				{
+					/* 文件上传完成时显示 ✅ */
 					progress >= 100 ? (
 						<Box>
 							<Correct theme="filled" fill={'green'} size={27} />
 						</Box>
 					) : null
+				}
+				{
+					/* 计算文件 hash 时显示 spinner */
+					hashing ? <Spinner /> : null
 				}
 			</HStack>
 		</Box>
